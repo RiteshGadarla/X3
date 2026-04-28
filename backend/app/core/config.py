@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # Gemini API (Phase 2+)
     gemini_api_key: str = ""
 
+    # Initial Admin
+    first_superuser: str = "admin@csagent.ai"
+    first_superuser_password: str = "Admin@1234!"
+
     # LangGraph (Phase 2 — no LangSmith)
     redis_url: str = ""
 

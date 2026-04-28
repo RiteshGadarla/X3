@@ -48,16 +48,19 @@ async def _seed_roles(db: AsyncSession) -> None:
 
 async def _seed_admin_user(db: AsyncSession) -> None:
     from app.models.user import User
-    result = await db.execute(select(User).where(User.email == "admin@csagent.ai"))
+    from app.core.config import get_settings
+    settings = get_settings()
+    
+    result = await db.execute(select(User).where(User.email == settings.first_superuser))
     if not result.scalar_one_or_none():
         result = await db.execute(select(Role).where(Role.name == "Admin"))
         admin_role = result.scalar_one_or_none()
         user = User(
-            email="admin@csagent.ai",
+            email=settings.first_superuser,
             full_name="System Admin",
-            hashed_password=hash_password("Admin@1234!"),
+            hashed_password=hash_password(settings.first_superuser_password),
             role_id=admin_role.id if admin_role else None,
             is_active=True,
         )
         db.add(user)
-        logger.info("Seeded default admin user: admin@csagent.ai / Admin@1234!")
+        logger.info(f"Seeded default admin user: {settings.first_superuser}")

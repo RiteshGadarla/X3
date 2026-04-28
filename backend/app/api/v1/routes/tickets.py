@@ -4,16 +4,17 @@ Ticket routes — public portal submission + authenticated queue management.
 
 import uuid
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
-from app.db.session import get_db
+from app.db.session import get_db, AsyncSessionLocal
 from app.models.ticket import Ticket, Priority, TicketStatus
 from app.models.sla_config import SLAConfig
 from app.schemas.ticket import TicketSubmit, TicketUpdate, TicketOut, TicketListResponse
 from app.api.deps import get_current_user, require_manager_or_admin
 from app.models.user import User
+from app.services.langgraph.graph import process_ticket
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 
@@ -34,9 +35,14 @@ async def _get_sla_deadline(db: AsyncSession, priority: Priority) -> datetime | 
     return datetime.now(timezone.utc) + timedelta(minutes=defaults.get(priority, 480))
 
 
+async def run_pipeline(ticket_id: int):
+    async with AsyncSessionLocal() as bg_db:
+        await process_ticket(ticket_id, bg_db)
+
+
 # ─── PUBLIC: Customer Portal Submission (UI-09) ───────────────────────────────
 @router.post("/submit", response_model=TicketOut, status_code=status.HTTP_201_CREATED)
-async def submit_ticket(payload: TicketSubmit, db: AsyncSession = Depends(get_db)):
+async def submit_ticket(payload: TicketSubmit, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     if not payload.ai_disclosure_accepted:
         raise HTTPException(
             status_code=400,
@@ -58,6 +64,10 @@ async def submit_ticket(payload: TicketSubmit, db: AsyncSession = Depends(get_db
     db.add(ticket)
     await db.flush()
     await db.refresh(ticket)
+    
+    # Run LangGraph pipeline in the background
+    background_tasks.add_task(run_pipeline, ticket.id)
+    
     return ticket
 
 

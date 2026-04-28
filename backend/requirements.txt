@@ -7,7 +7,7 @@
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
 
-# Database (async SQLAlchemy + SQLite driver)
+# Database
 sqlalchemy[asyncio]==2.0.36
 aiosqlite==0.20.0
 alembic==1.14.0
@@ -15,6 +15,7 @@ alembic==1.14.0
 # Auth & security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
 python-multipart==0.0.20
 
 # Configuration
@@ -26,7 +27,7 @@ email-validator>=2.0.0
 # LLM — Gemini
 google-generativeai==0.8.3
 
-# Agentic Orchestration — LangGraph (NO LangSmith)
+# Agentic Orchestration 
 langgraph==0.2.56
 langchain-google-genai==2.0.7
 langchain-core==0.3.27
