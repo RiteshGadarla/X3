@@ -1,0 +1,72 @@
+/* ═══════════════════════════════════════════════════════════════════
+   CentificAI aegis.ai — Design Tokens
+   Source: brandGuide.html (official Figma design system)
+═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Brand Colors ─────────────────────────── */
+  --primary:        #5929d0;
+  --primary-light:  #E8E5FF;
+  --primary-border: #9B8EDE;
+  --pink:           #CF008B;
+  --pink-light:     #FFD6F4;
+  --navy-dark:      #0E2E89;
+  --navy-bot:       #001427;
+  --cyan:           #22D3EE;
+  --cyan-light:     #CFFAFE;
+
+  /* ── Semantic / Status ────────────────────── */
+  --success:        #16A34A;
+  --success-light:  #DCFCE7;
+  --warning:        #E4902E;
+  --warning-light:  #FEF3C7;
+  --error:          #DC2626;
+  --error-light:    #FEE2E2;
+
+  /* ── Neutral Scale ────────────────────────── */
+  --neutral-0:  #0F172A;
+  --neutral-1:  #1E293B;
+  --neutral-2:  #334155;
+  --neutral-3:  #475569;
+  --neutral-4:  #64748B;
+  --neutral-5:  #94A3B8;
+  --neutral-6:  #CBD5E1;
+  --neutral-7:  #E2E8F0;
+  --neutral-8:  #F1F5F9;
+  --neutral-9:  #FFFFFF;
+
+  /* ── Gradients ────────────────────────────── */
+  --gradient-hero:   linear-gradient(135deg, #EDE9FF 0%, #F5EEFF 30%, #FFE4F7 60%, #FFFFFF 100%);
+  --gradient-banner: linear-gradient(90deg, #A855F7 0%, #6B8EF0 50%, #01CAB8 100%);
+
+  /* ── Elevation ────────────────────────────── */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.10);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,.12);
+
+  /* ── Border Radius ────────────────────────── */
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   20px;
+  --radius-pill: 999px;
+
+  /* ── Spacing Scale ────────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --space-16: 64px;
+
+  /* ── Typography ───────────────────────────── */
+  --font-body:  'Poppins', system-ui, sans-serif;
+  --font-code:  'Courier New', monospace;
+
+  /* ── Sidebar width ────────────────────────── */
+  --sidebar-w: 220px;
+}

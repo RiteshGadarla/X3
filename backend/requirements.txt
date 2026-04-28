@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────────────────────
+# CSAgent Backend — Python Dependencies
+# Install: pip install -r requirements.txt
+# ─────────────────────────────────────────────────────────
+
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# Database (async SQLAlchemy + SQLite driver)
+sqlalchemy[asyncio]==2.0.36
+aiosqlite==0.20.0
+alembic==1.14.0
+
+# Auth & security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.20
+
+# Configuration
+pydantic-settings==2.7.0
+python-dotenv==1.0.1
+email-validator>=2.0.0
+
+
+# LLM — Gemini
+google-generativeai==0.8.3
+
+# Agentic Orchestration — LangGraph (NO LangSmith)
+langgraph==0.2.56
+langchain-google-genai==2.0.7
+langchain-core==0.3.27
+
+# Utilities
+httpx==0.28.1
