@@ -12,6 +12,9 @@ export default function CustomerPortal() {
   const [submitted, setSubmitted] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState('submit') // 'submit' or 'status'
+  const [statusForm, setStatusForm] = useState({ ticket_ref: '', customer_email: '' })
+  const [statusResult, setStatusResult] = useState(null)
 
   const categories = ['General', 'Billing', 'Technical', 'Account', 'Feature Request', 'Security', 'Other']
 
@@ -47,6 +50,30 @@ export default function CustomerPortal() {
     }
   }
 
+  const handleStatusSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    setStatusResult(null)
+    try {
+      const url = new URL(`${import.meta.env.VITE_API_BASE_URL}/tickets/status/check`)
+      url.searchParams.append('ticket_ref', statusForm.ticket_ref)
+      url.searchParams.append('customer_email', statusForm.customer_email)
+      
+      const res = await fetch(url)
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.detail || 'Failed to fetch status')
+      }
+      const ticket = await res.json()
+      setStatusResult(ticket)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (submitted) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--gradient-hero)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
@@ -64,8 +91,6 @@ export default function CustomerPortal() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
                 {[
                   ['Reference', submitted.ticket_ref],
-                  ['Priority', submitted.priority],
-                  ['Status', submitted.status],
                   ['Category', submitted.category],
                 ].map(([label, val]) => (
                   <div key={label}>
@@ -91,24 +116,43 @@ export default function CustomerPortal() {
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{ width: '48px', height: '48px', background: 'var(--pink)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 800, color: '#fff', margin: '0 auto 12px', boxShadow: '0 8px 24px rgba(207,0,139,.3)' }}>C</div>
           <div style={{ fontWeight: 800, fontSize: '20px', color: 'var(--neutral-0)' }}>centific aegis.ai</div>
-          <h1 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--neutral-0)', marginTop: '20px', marginBottom: '6px' }}>
-            How can we <span style={{ color: 'var(--pink)' }}>help you?</span>
-          </h1>
-          <p style={{ color: 'var(--neutral-4)', fontSize: '14px' }}>
-            Submit a support ticket and our AI-powered team will respond based on priority SLA.
-          </p>
+          
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '24px' }}>
+            <button className={`btn ${mode === 'submit' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setMode('submit'); setError(''); setStatusResult(null); }}>
+              Submit Ticket
+            </button>
+            <button className={`btn ${mode === 'status' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setMode('status'); setError(''); }}>
+              Check Status
+            </button>
+          </div>
+          
+          {mode === 'submit' && (
+            <>
+              <h1 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--neutral-0)', marginTop: '20px', marginBottom: '6px' }}>
+                How can we <span style={{ color: 'var(--pink)' }}>help you?</span>
+              </h1>
+              <p style={{ color: 'var(--neutral-4)', fontSize: '14px' }}>
+                Submit a support ticket and our AI-powered team will respond based on priority SLA.
+              </p>
+            </>
+          )}
         </div>
 
         {/* Form */}
         <div className="card" style={{ boxShadow: 'var(--shadow-lg)' }}>
           {/* Banner */}
           <div style={{ background: 'var(--gradient-banner)', padding: '14px 24px', borderRadius: 'var(--radius-md) var(--radius-md) 0 0' }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>🎫 New Support Request</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,.75)' }}>All fields marked * are required</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>
+              {mode === 'submit' ? '🎫 New Support Request' : '🔍 Check Ticket Status'}
+            </div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,.75)' }}>
+              {mode === 'submit' ? 'All fields marked * are required' : 'Enter your email and ticket reference ID'}
+            </div>
           </div>
 
           <div className="card-body">
-            <form onSubmit={handleSubmit}>
+            {mode === 'submit' ? (
+              <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div className="form-group">
                   <label className="form-label" htmlFor="customer_name">Full Name *</label>
@@ -174,6 +218,50 @@ export default function CustomerPortal() {
                 </button>
               </div>
             </form>
+            ) : (
+            <form onSubmit={handleStatusSubmit}>
+              <div style={{ display: 'grid', gap: '16px', marginBottom: '20px' }}>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="status_email">Email Address *</label>
+                  <input id="status_email" type="email" className="form-input" value={statusForm.customer_email} onChange={e => setStatusForm(s => ({...s, customer_email: e.target.value}))} placeholder="jane@company.com" required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="ticket_ref">Ticket Reference ID *</label>
+                  <input id="ticket_ref" className="form-input" value={statusForm.ticket_ref} onChange={e => setStatusForm(s => ({...s, ticket_ref: e.target.value}))} placeholder="TKT-XXXXXXX" required />
+                </div>
+              </div>
+              
+              {error && (
+                <div style={{ background: 'var(--error-light)', border: '1px solid var(--error)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: '13px', color: 'var(--error)', marginBottom: '16px' }}>
+                  ⚠️ {error}
+                </div>
+              )}
+              
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  {loading ? '⏳ Checking…' : '🔍 Check Status'}
+                </button>
+              </div>
+              
+              {statusResult && (
+                <div style={{ marginTop: '24px', padding: '16px', border: '1px solid var(--primary-border)', borderRadius: 'var(--radius-md)', background: 'var(--primary-light)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--neutral-0)' }}>{statusResult.ticket_ref}</div>
+                    <span className="badge badge-primary">{statusResult.status.toUpperCase()}</span>
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--neutral-2)', marginBottom: '8px' }}>
+                    <strong>Subject:</strong> {statusResult.subject}
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--neutral-2)' }}>
+                    <strong>Priority:</strong> {statusResult.priority}
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--neutral-2)', marginTop: '8px' }}>
+                    <strong>Created:</strong> {new Date(statusResult.created_at).toLocaleString()}
+                  </div>
+                </div>
+              )}
+            </form>
+            )}
           </div>
         </div>
 

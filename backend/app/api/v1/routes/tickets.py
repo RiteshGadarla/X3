@@ -15,6 +15,10 @@ from app.schemas.ticket import TicketSubmit, TicketUpdate, TicketOut, TicketList
 from app.api.deps import get_current_user, require_manager_or_admin
 from app.models.user import User
 from app.services.langgraph.graph import process_ticket
+from app.core.logging import get_logger
+from app.core.redis import cache_response
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 
@@ -43,11 +47,26 @@ async def run_pipeline(ticket_id: int):
 # ─── PUBLIC: Customer Portal Submission (UI-09) ───────────────────────────────
 @router.post("/submit", response_model=TicketOut, status_code=status.HTTP_201_CREATED)
 async def submit_ticket(payload: TicketSubmit, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    logger.info(f"Received ticket submission from {payload.customer_email}")
     if not payload.ai_disclosure_accepted:
         raise HTTPException(
             status_code=400,
             detail="You must accept the AI assistance disclosure to submit a ticket.",
         )
+
+    # ── Qdrant Spam Prevention (hash dedup) ──
+    try:
+        from app.core.qdrant import check_spam_duplicate
+        is_spam = await check_spam_duplicate(payload.customer_email, payload.subject, payload.description)
+        if is_spam:
+            raise HTTPException(
+                status_code=429,
+                detail="Duplicate submission detected. Please wait 60 seconds before resubmitting.",
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"Qdrant spam check skipped: {e}")
 
     ticket = Ticket(
         ticket_ref=_generate_ref(),
@@ -57,15 +76,23 @@ async def submit_ticket(payload: TicketSubmit, background_tasks: BackgroundTasks
         description=payload.description,
         category=payload.category,
         ai_disclosure_accepted=True,
-        priority=Priority.P4,  # Default; AG-02 will re-triage
+        priority=Priority.UNASSIGNED,  # Default; AG-02 will re-triage
         status=TicketStatus.NEW,
     )
     ticket.sla_deadline = await _get_sla_deadline(db, ticket.priority)
     db.add(ticket)
     await db.flush()
     await db.refresh(ticket)
+
+    # ── Store ticket fingerprint in Qdrant for AG-03 dedup ──
+    try:
+        from app.core.qdrant import store_ticket_fingerprint
+        await store_ticket_fingerprint(ticket.ticket_ref, payload.subject, payload.description, payload.category)
+    except Exception as e:
+        logger.warning(f"Qdrant fingerprint store skipped: {e}")
     
     # Run LangGraph pipeline in the background
+    logger.info(f"Scheduling background pipeline for ticket {ticket.ticket_ref}")
     background_tasks.add_task(run_pipeline, ticket.id)
     
     return ticket
@@ -73,6 +100,7 @@ async def submit_ticket(payload: TicketSubmit, background_tasks: BackgroundTasks
 
 # ─── AUTHENTICATED: Ticket Queue (UI-01) ─────────────────────────────────────
 @router.get("/", response_model=TicketListResponse)
+@cache_response(expire=15)
 async def list_tickets(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -122,6 +150,7 @@ async def update_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
+    logger.info(f"Updating ticket {ticket.ticket_ref} by user")
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(ticket, field, value)
 
@@ -130,4 +159,67 @@ async def update_ticket(
 
     await db.flush()
     await db.refresh(ticket)
+    return ticket
+
+
+# ─── PHASE 2: Child Tickets (AG-11 Splitting) ────────────────────────────────
+@router.get("/{ticket_id}/children", response_model=list[TicketOut])
+async def get_child_tickets(
+    ticket_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Get all child tickets created by AG-11 ticket splitting."""
+    result = await db.execute(
+        select(Ticket).where(Ticket.parent_id == ticket_id).order_by(Ticket.created_at.asc())
+    )
+    children = result.scalars().all()
+    return children
+
+
+# ─── PHASE 2: Linked Tickets (AG-03 Dedup) ───────────────────────────────────
+@router.get("/{ticket_id}/linked", response_model=list[TicketOut])
+async def get_linked_tickets(
+    ticket_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Get all tickets linked to the same master ticket (dedup group)."""
+    # First get the ticket to find its master_ticket_id
+    result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
+    ticket = result.scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    master_id = ticket.master_ticket_id or ticket.id
+    result = await db.execute(
+        select(Ticket)
+        .where(Ticket.master_ticket_id == master_id)
+        .where(Ticket.id != ticket_id)
+        .order_by(Ticket.created_at.asc())
+    )
+    linked = result.scalars().all()
+    return linked
+
+
+# ─── PUBLIC: Customer Portal Status Check ───────────────────────────────────────
+@router.get("/status/check", response_model=TicketOut)
+async def get_ticket_status(
+    ticket_ref: str = Query(..., description="The unique ticket reference ID"),
+    customer_email: str = Query(..., description="The email used to submit the ticket"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Allow customers to check their ticket status without logging in."""
+    result = await db.execute(
+        select(Ticket)
+        .where(Ticket.ticket_ref == ticket_ref)
+        .where(Ticket.customer_email == customer_email)
+    )
+    ticket = result.scalar_one_or_none()
+    
+    if not ticket:
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket not found with the provided reference and email combination."
+        )
     return ticket

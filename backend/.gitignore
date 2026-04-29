@@ -25,6 +25,7 @@ ENV/
 # Logs & runtime files
 # =========================
 *.log
+logs/
 *.pid
 *.seed
 *.pid.lock

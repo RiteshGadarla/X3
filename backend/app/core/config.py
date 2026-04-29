@@ -6,6 +6,7 @@ Reads all settings from .env via pydantic-settings.
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import List
+from typing import List, Literal
 
 
 class Settings(BaseSettings):
@@ -17,9 +18,11 @@ class Settings(BaseSettings):
 
     # App
     app_name: str = "CSAgent"
-    app_env: str = "development"
+    app_env: Literal["development", "production", "test"] = "development"
     debug: bool = True
     api_v1_prefix: str = "/api/v1"
+    log_dir: str = "logs"
+    log_file: str = "app.log"
 
     # Security
     secret_key: str
@@ -40,7 +43,8 @@ class Settings(BaseSettings):
     first_superuser_password: str = "Admin@1234!"
 
     # LangGraph (Phase 2 — no LangSmith)
-    redis_url: str = ""
+    qdrant_url: str = ""
+    redis_url: str = "redis://localhost:6379/0"
 
     @property
     def cors_origins_list(self) -> List[str]:

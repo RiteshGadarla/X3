@@ -7,6 +7,13 @@ const NAV_ITEMS = [
     links: [
       { to: '/support/queue',      label: 'Ticket Queue',     icon: '🎫' },
       { to: '/support/escalation', label: 'HIL Escalation',   icon: '🚨' },
+      { to: '/support/sdlc',       label: 'SDLC Tracker',     icon: '🏗️' },
+    ],
+  },
+  {
+    section: 'Command',
+    links: [
+      { to: '/support/commands',  label: 'Command Center',   icon: '⚡' },
     ],
   },
   {
@@ -14,6 +21,7 @@ const NAV_ITEMS = [
     links: [
       { to: '/admin/rbac', label: 'RBAC Dashboard', icon: '👥' },
       { to: '/admin/sla',  label: 'SLA Config',     icon: '⏱️' },
+      { to: '/admin/monitor', label: 'Project Monitor', icon: '📈' },
     ],
   },
   {
@@ -42,6 +50,11 @@ export default function Sidebar() {
           <div className="sidebar-logo-text">centific</div>
           <div className="sidebar-logo-sub">aegis.ai · CSAgent</div>
         </div>
+      </div>
+
+      {/* Phase tag */}
+      <div style={{ padding: '8px 20px 0' }}>
+        <span className="section-tag">Phase 2</span>
       </div>
 
       {/* Navigation */}

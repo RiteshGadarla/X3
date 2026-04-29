@@ -2,12 +2,13 @@
 
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import String, Text, ForeignKey, DateTime, Enum as SAEnum, Boolean
+from sqlalchemy import String, Text, ForeignKey, DateTime, Enum as SAEnum, Boolean, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
 class Priority(str, enum.Enum):
+    UNASSIGNED = "UNASSIGNED"
     P1 = "P1"  # 15 mins SLA
     P2 = "P2"  # 1 hour SLA
     P3 = "P3"  # 4 hours SLA
@@ -41,7 +42,7 @@ class Ticket(Base):
     subject: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(String(64), default="General")
-    priority: Mapped[Priority] = mapped_column(SAEnum(Priority), default=Priority.P4)
+    priority: Mapped[Priority] = mapped_column(SAEnum(Priority), default=Priority.UNASSIGNED)
     status: Mapped[TicketStatus] = mapped_column(SAEnum(TicketStatus), default=TicketStatus.NEW)
     sentiment: Mapped[SentimentLabel] = mapped_column(SAEnum(SentimentLabel), default=SentimentLabel.NEUTRAL)
 
@@ -50,6 +51,28 @@ class Ticket(Base):
 
     # AI disclosure checkbox (UI-09 requirement)
     ai_disclosure_accepted: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # ── Phase 2: Ticket Splitting (AG-11) ──
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id"), nullable=True)
+    children: Mapped[list["Ticket"]] = relationship(
+        "Ticket", back_populates="parent", foreign_keys="Ticket.parent_id"
+    )
+    parent: Mapped["Ticket | None"] = relationship(
+        "Ticket", back_populates="children", remote_side="Ticket.id", foreign_keys="Ticket.parent_id"
+    )
+
+    # ── Phase 2: Deduplication Linking (AG-03) ──
+    master_ticket_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id"), nullable=True)
+
+    # ── Phase 2: Routing (AG-04) ──
+    routing_target: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # ── Phase 2: SDLC Gate (AG-09) ──
+    sdlc_devops_ok: Mapped[bool] = mapped_column(Boolean, default=False)
+    sdlc_qa_ok: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # ── Phase 2: Loop Detection (AG-14) ──
+    loop_count: Mapped[int] = mapped_column(Integer, default=0)
 
     # Assignment
     assigned_to_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)

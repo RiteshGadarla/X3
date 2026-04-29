@@ -1,5 +1,6 @@
 import { Badge } from '../ui/Badge';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const PRIORITY_BADGE = {
   P1: 'error',
@@ -50,8 +51,14 @@ function SLATimer({ deadline }) {
 }
 
 export default function TicketRow({ ticket }) {
+  const navigate = useNavigate();
+
   return (
-    <tr>
+    <tr
+      onClick={() => navigate(`/support/ticket/${ticket.id}`)}
+      style={{ cursor: 'pointer', transition: 'background .1s' }}
+      title="Click to view ticket details"
+    >
       <td><span style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 600, color: 'var(--primary)' }}>{ticket.ticket_ref}</span></td>
       <td>
         <div style={{ fontWeight: 600, fontSize: '13px' }}>{ticket.customer_name}</div>
@@ -62,7 +69,12 @@ export default function TicketRow({ ticket }) {
       <td><Badge variant={PRIORITY_BADGE[ticket.priority]}>{ticket.priority}</Badge></td>
       <td><Badge variant={STATUS_BADGE[ticket.status] || 'neutral'}>{ticket.status.replace(/_/g, ' ')}</Badge></td>
       <td><SLATimer deadline={ticket.sla_deadline} /></td>
-      <td style={{ fontSize: '12px', color: 'var(--neutral-4)' }}>{new Date(ticket.created_at).toLocaleDateString()}</td>
+      <td style={{ fontSize: '12px', color: 'var(--neutral-4)' }}>
+        {new Date(ticket.created_at).toLocaleDateString()}
+        {ticket.routing_target && (
+          <div style={{ fontSize: '10px', color: 'var(--cyan)', marginTop: '2px' }}>→ {ticket.routing_target}</div>
+        )}
+      </td>
     </tr>
   );
 }

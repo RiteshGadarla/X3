@@ -457,3 +457,166 @@ tbody tr:last-child td { border-bottom: none; }
 .mb-4          { margin-bottom: var(--space-4); }
 .mb-6          { margin-bottom: var(--space-6); }
 .w-full        { width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Phase 2 — Ticket Detail, Pipeline Timeline, SDLC Gate
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── Ticket Detail Banner ────────────────────────────────────────── */
+.ticket-detail-banner {
+  background: var(--gradient-banner);
+  border-radius: var(--radius-md);
+  padding: var(--space-6) var(--space-8);
+  margin-bottom: var(--space-6);
+  color: #fff;
+}
+.ticket-ref-badge {
+  display: inline-block;
+  background: rgba(255,255,255,.2);
+  backdrop-filter: blur(4px);
+  padding: 3px 12px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+/* ── Ticket Detail Grid ──────────────────────────────────────────── */
+.ticket-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: var(--space-6);
+}
+@media (max-width: 960px) {
+  .ticket-detail-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Pipeline Timeline ───────────────────────────────────────────── */
+.pipeline-timeline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  padding: var(--space-2) 0;
+}
+.timeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 72px;
+  position: relative;
+  flex-shrink: 0;
+}
+.timeline-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 16px;
+  left: calc(50% + 18px);
+  width: calc(100% - 36px);
+  height: 2px;
+  background: var(--neutral-6);
+  z-index: 0;
+}
+.timeline-step.done:not(:last-child)::after {
+  background: var(--success);
+}
+.timeline-step.active:not(:last-child)::after {
+  background: linear-gradient(90deg, var(--primary), var(--neutral-6));
+}
+.timeline-icon {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--neutral-8);
+  border: 2px solid var(--neutral-6);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  position: relative;
+  z-index: 1;
+  transition: all .2s;
+}
+.timeline-step.done .timeline-icon {
+  background: var(--success-light);
+  border-color: var(--success);
+}
+.timeline-step.active .timeline-icon {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(89,41,208,.15);
+  animation: pulse 2s infinite;
+}
+.timeline-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--neutral-5);
+  text-align: center;
+  white-space: nowrap;
+}
+.timeline-step.done .timeline-label { color: var(--success); }
+.timeline-step.active .timeline-label { color: var(--primary); font-weight: 700; }
+
+/* ── SLA Bar ─────────────────────────────────────────────────────── */
+.sla-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--neutral-7);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.sla-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width .5s ease, background .3s;
+}
+
+/* ── SDLC Gate ───────────────────────────────────────────────────── */
+.sdlc-check-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--neutral-8);
+}
+.sdlc-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sdlc-check.confirmed { opacity: 1; }
+.sdlc-check.pending { opacity: .7; }
+
+/* ── SDLC Tracker Rows ──────────────────────────────────────────── */
+.sdlc-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--neutral-7);
+  transition: background .1s;
+}
+.sdlc-row:hover { background: var(--neutral-8); }
+.sdlc-row:last-child { border-bottom: none; }
+.sdlc-row-info { min-width: 0; }
+.sdlc-row-gates {
+  display: flex;
+  gap: var(--space-3);
+}
+.sdlc-gate-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--neutral-8);
+  border: 1px solid var(--neutral-7);
+  border-radius: var(--radius-md);
+  min-width: 160px;
+}
+
+/* ── Clickable Table Rows ────────────────────────────────────────── */
+tbody tr { transition: background .1s; }
+tbody tr[style*="cursor: pointer"]:hover td {
+  background: var(--primary-light) !important;
+}
