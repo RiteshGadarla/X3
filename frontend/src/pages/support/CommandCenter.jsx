@@ -49,8 +49,8 @@ export default function CommandCenter() {
           <span className="badge badge-primary">API Ready</span>
         </div>
         <div className="card-body" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {presets.map(p => (
-            <button key={p.label} className="btn btn-secondary btn-sm" disabled={loading} onClick={() => execute(p.cmd)}>
+          {presets.map((p, i) => (
+            <button key={p.label} id={`cmd-preset-${i}`} className="btn btn-secondary btn-sm" disabled={loading} onClick={() => execute(p.cmd)}>
               {p.label}
             </button>
           ))}
@@ -72,7 +72,7 @@ export default function CommandCenter() {
               value={input}
               onChange={e => setInput(e.target.value)}
             />
-            <button type="submit" className="btn btn-primary" disabled={loading}>
+            <button id="cmd-execute" type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? '…' : '▶ Execute'}
             </button>
           </form>
@@ -83,7 +83,7 @@ export default function CommandCenter() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">📋 Results ({results.length})</span>
-          {results.length > 0 && <button className="btn btn-ghost btn-sm" onClick={() => setResults([])}>Clear</button>}
+          {results.length > 0 && <button id="cmd-results-clear" className="btn btn-ghost btn-sm" onClick={() => setResults([])}>Clear</button>}
         </div>
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
           {results.length === 0 ? (

@@ -14,13 +14,14 @@ export default function TicketTable({ tickets, loading }) {
             <th>Status</th>
             <th>SLA Remaining</th>
             <th>Created</th>
+            <th style={{ textAlign: 'right' }}>Action</th>
           </tr>
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: '40px' }}>Loading tickets…</td></tr>
+            <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: '40px' }}>Loading tickets…</td></tr>
           ) : tickets.length === 0 ? (
-            <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: '40px' }}>No tickets found</td></tr>
+            <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: '40px' }}>No tickets found</td></tr>
           ) : tickets.map((t) => (
             <TicketRow key={t.id} ticket={t} />
           ))}

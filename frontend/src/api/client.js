@@ -1,32 +1,38 @@
 /**
- * Axios API client — points to FastAPI backend via VITE_API_BASE_URL
- * Automatically injects JWT Authorization header from localStorage.
+ * Axios API client — points to FastAPI backend via VITE_API_BASE_URL.
+ * Injects X-Role header derived from the URL prefix (no JWT / no login).
+ * The frontend is mounted under /luka-aegis-fe, so the role segment
+ * is the *second* path part, not the first.
+ *   /luka-aegis-fe/admin   → X-Role: Admin
+ *   /luka-aegis-fe/manager → X-Role: Manager
+ *   /luka-aegis-fe/agent   → X-Role: Support Agent
+ *   /luka-aegis-fe/vp      → X-Role: VP Customer Success
+ *   /luka-aegis-fe/legal   → X-Role: Legal
  */
 import axios from 'axios'
 
+const FE_BASENAME = 'luka-aegis-fe'
+
+const PATH_TO_ROLE = {
+  '/admin':   'Admin',
+  '/manager': 'Manager',
+  '/agent':   'Support Agent',
+  '/vp':      'VP Customer Success',
+  '/legal':   'Legal',
+}
+
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/luka-aegis/api/v1',
   headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 })
 
-// Request interceptor — inject token
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem('csagent_token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  const parts = window.location.pathname.split('/').filter(Boolean)
+  const roleSeg = parts[0] === FE_BASENAME ? parts[1] : parts[0]
+  const role = PATH_TO_ROLE['/' + (roleSeg || '')]
+  if (role) config.headers['X-Role'] = role
   return config
 })
-
-// Response interceptor — handle 401
-client.interceptors.response.use(
-  (res) => res,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('csagent_token')
-      window.location.href = '/login'
-    }
-    return Promise.reject(error)
-  }
-)
 
 export default client

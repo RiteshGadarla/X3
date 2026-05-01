@@ -11,9 +11,9 @@ from sqlalchemy import select, func
 from app.db.session import get_db, AsyncSessionLocal
 from app.models.ticket import Ticket, Priority, TicketStatus
 from app.models.sla_config import SLAConfig
-from app.schemas.ticket import TicketSubmit, TicketUpdate, TicketOut, TicketListResponse
-from app.api.deps import get_current_user, require_manager_or_admin
+from app.models.project import Project
 from app.models.user import User
+from app.schemas.ticket import TicketSubmit, TicketUpdate, TicketOut, TicketListResponse
 from app.services.langgraph.graph import process_ticket
 from app.core.logging import get_logger
 from app.core.redis import cache_response
@@ -68,6 +68,14 @@ async def submit_ticket(payload: TicketSubmit, background_tasks: BackgroundTasks
     except Exception as e:
         logger.warning(f"Qdrant spam check skipped: {e}")
 
+    # Check if submitting email belongs to a VIP user
+    vip_result = await db.execute(select(User).where(User.email == payload.customer_email, User.is_vip == True))  # noqa: E712
+    is_vip = vip_result.scalar_one_or_none() is not None
+
+    # Resolve default project
+    proj_result = await db.execute(select(Project).where(Project.slug == "default"))
+    default_project = proj_result.scalar_one_or_none()
+
     ticket = Ticket(
         ticket_ref=_generate_ref(),
         customer_name=payload.customer_name,
@@ -78,6 +86,8 @@ async def submit_ticket(payload: TicketSubmit, background_tasks: BackgroundTasks
         ai_disclosure_accepted=True,
         priority=Priority.UNASSIGNED,  # Default; AG-02 will re-triage
         status=TicketStatus.NEW,
+        is_vip_customer=is_vip,
+        project_id=default_project.id if default_project else None,
     )
     ticket.sla_deadline = await _get_sla_deadline(db, ticket.priority)
     db.add(ticket)
@@ -107,7 +117,6 @@ async def list_tickets(
     status: TicketStatus | None = None,
     priority: Priority | None = None,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     query = select(Ticket)
     if status:
@@ -129,7 +138,6 @@ async def list_tickets(
 async def get_ticket(
     ticket_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
     ticket = result.scalar_one_or_none()
@@ -143,7 +151,6 @@ async def update_ticket(
     ticket_id: int,
     payload: TicketUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
     ticket = result.scalar_one_or_none()
@@ -167,7 +174,6 @@ async def update_ticket(
 async def get_child_tickets(
     ticket_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     """Get all child tickets created by AG-11 ticket splitting."""
     result = await db.execute(
@@ -182,7 +188,6 @@ async def get_child_tickets(
 async def get_linked_tickets(
     ticket_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     """Get all tickets linked to the same master ticket (dedup group)."""
     # First get the ticket to find its master_ticket_id

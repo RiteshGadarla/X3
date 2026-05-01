@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     app_name: str = "CSAgent"
     app_env: Literal["development", "production", "test"] = "development"
     debug: bool = True
-    api_v1_prefix: str = "/api/v1"
+    api_v1_prefix: str = "/luka-aegis/api/v1"
     log_dir: str = "logs"
     log_file: str = "app.log"
 

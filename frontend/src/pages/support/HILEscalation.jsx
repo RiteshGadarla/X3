@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import client from '../../api/client'
+import { useRole } from '../../hooks/useRole'
+import { DonutChart, BarChart, BRAND } from '../../components/charts/Charts'
+import Icon from '../../components/ui/Icons'
+import DashboardHero from '../../components/ui/DashboardHero'
 
 export default function HILEscalation() {
+  const { role } = useRole()
+  const canTakeAction = ['Admin', 'Manager', 'VP Customer Success', 'Legal'].includes(role)
+
   const [escalated, setEscalated] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -31,44 +38,121 @@ export default function HILEscalation() {
     }
   }
 
+  // Insights from escalated set
+  const byPriority = escalated.reduce((acc, t) => { acc[t.priority] = (acc[t.priority] || 0) + 1; return acc }, {})
+  const byCategory = escalated.reduce((acc, t) => { acc[t.category || 'Uncategorized'] = (acc[t.category || 'Uncategorized'] || 0) + 1; return acc }, {})
+
+  const priorityChart = ['P1','P2','P3','P4'].map(p => ({
+    label: p, value: byPriority[p] || 0,
+    color: p === 'P1' ? BRAND.error : p === 'P2' ? BRAND.warning : p === 'P3' ? BRAND.primary : BRAND.cyan,
+  })).filter(x => x.value > 0)
+
+  const categoryChart = Object.entries(byCategory)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([k, v], i) => ({
+      label: k, value: v,
+      color: [BRAND.pink, BRAND.primary, BRAND.warning, BRAND.cyan, BRAND.success][i],
+    }))
+
+  const p1Esc = byPriority.P1 || 0
+  const p2Esc = byPriority.P2 || 0
+  const queueAges = escalated
+    .filter(t => t.created_at)
+    .map(t => (Date.now() - new Date(t.created_at).getTime()) / 3600000)
+  const oldestHours = queueAges.reduce((m, h) => Math.max(m, h), 0)
+  const avgHours    = queueAges.length ? queueAges.reduce((a, b) => a + b, 0) / queueAges.length : 0
+  const topCategory = Object.entries(byCategory).sort((a, b) => b[1] - a[1])[0]
+  const formatHours = (h) => h >= 1 ? `${h.toFixed(1)}h` : `${Math.round(h * 60)}m`
+
+  const heroKpis = [
+    {
+      label: 'Queue',
+      value: escalated.length,
+      foot: avgHours > 0 ? `avg wait ${formatHours(avgHours)}` : 'awaiting human',
+      tone: escalated.length > 5 ? 'pink' : null,
+    },
+    {
+      label: 'P1',
+      value: p1Esc,
+      foot: '15-min SLA',
+      tone: p1Esc > 0 ? 'down' : null,
+    },
+    {
+      label: 'P2',
+      value: p2Esc,
+      foot: '1-hr SLA',
+      tone: p2Esc > 2 ? 'warn' : null,
+    },
+    {
+      label: 'Oldest',
+      value: oldestHours > 0 ? formatHours(oldestHours) : '—',
+      foot: 'in queue',
+      tone: oldestHours > 4 ? 'down' : oldestHours > 1 ? 'warn' : null,
+    },
+    {
+      label: 'Top Category',
+      value: topCategory ? topCategory[1] : 0,
+      foot: topCategory ? topCategory[0] : 'no items',
+    },
+  ]
+
   return (
     <div>
-      <div className="page-banner" style={{ marginBottom: '24px', borderRadius: 'var(--radius-md)' }}>
-        <h1>HIL Escalation Review Board</h1>
-        <p>Human-In-The-Loop checkpoints. Review and approve escalated tickets that AI cannot handle autonomously.</p>
-      </div>
+      <DashboardHero
+        live="Human-In-The-Loop · Live"
+        title="HIL Escalation Review Board"
+        subtitle="Tickets the AI handed off for human judgment. Review and decide."
+        meta="Triggers: Billing/Legal/VIP/Angry · P1·P2 close override · KB publish gate"
+        kpis={heroKpis}
+      />
 
-      {/* HIL Rules summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-        {[
-          { id: 'HIL-3', label: 'Critical Escalation', desc: 'Billing, Legal, VIP, Angry customers', color: 'var(--error)', bg: 'var(--error-light)' },
-          { id: 'HIL-4', label: 'P1/P2 Override', desc: 'Cannot close without human confirmation', color: 'var(--warning)', bg: 'var(--warning-light)' },
-          { id: 'HIL-5', label: 'KB Publication', desc: 'AI drafts, human must click Publish', color: 'var(--primary)', bg: 'var(--primary-light)' },
-        ].map((hil) => (
-          <div key={hil.id} className="card" style={{ borderLeft: `4px solid ${hil.color}` }}>
-            <div className="card-body" style={{ padding: '14px 18px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <span style={{ background: hil.bg, color: hil.color, borderRadius: 'var(--radius-pill)', padding: '2px 10px', fontSize: '11px', fontWeight: 700 }}>{hil.id}</span>
-                <span style={{ fontWeight: 600, fontSize: '13px' }}>{hil.label}</span>
+      {/* Insight charts */}
+      {escalated.length > 0 && (
+        <div className="dash-grid-2">
+          <div className="chart-card">
+            <div className="chart-card-head">
+              <div className="chart-card-title">
+                <span className="chart-card-title-icon"><Icon.alert /></span>
+                Priority Mix in Queue
               </div>
-              <p style={{ fontSize: '12px', color: 'var(--neutral-4)' }}>{hil.desc}</p>
+              <span className="badge badge-error">Triage</span>
+            </div>
+            <div className="chart-card-body">
+              <DonutChart data={priorityChart} size={170} centerLabel="QUEUE" />
             </div>
           </div>
-        ))}
-      </div>
+          <div className="chart-card">
+            <div className="chart-card-head">
+              <div className="chart-card-title">
+                <span className="chart-card-title-icon"><Icon.fire /></span>
+                Top Categories
+              </div>
+              <span className="badge badge-warning">Pattern</span>
+            </div>
+            <div className="chart-card-body">
+              <BarChart data={categoryChart} horizontal height={200} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Escalation queue */}
       <div className="card">
         <div className="card-header">
-          <span className="card-title">🚨 Pending Human Review ({escalated.length})</span>
-          <button className="btn btn-secondary btn-sm" onClick={fetchEscalated}>↻ Refresh</button>
+          <span className="card-title">Pending Human Review ({escalated.length})</span>
+          <button id="hil-refresh" className="btn btn-secondary btn-sm" onClick={fetchEscalated}>
+            <Icon.refresh /> Refresh
+          </button>
         </div>
 
         {loading ? (
           <div style={{ padding: '48px', textAlign: 'center', color: 'var(--neutral-4)' }}>Loading escalations…</div>
         ) : escalated.length === 0 ? (
           <div style={{ padding: '48px', textAlign: 'center' }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>✅</div>
+            <div style={{ display: 'inline-flex', width: 64, height: 64, borderRadius: '50%', background: 'var(--success-light)', color: 'var(--success)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <Icon.check width="32" height="32" />
+            </div>
             <div style={{ fontWeight: 600, color: 'var(--neutral-0)', marginBottom: '4px' }}>No Pending Escalations</div>
             <div style={{ fontSize: '13px', color: 'var(--neutral-4)' }}>All tickets are being handled autonomously.</div>
           </div>
@@ -97,17 +181,23 @@ export default function HILEscalation() {
                     Submitted: {new Date(t.created_at).toLocaleString()}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => handleApprove(t.id, 'assign')}>
-                    👤 Assign
-                  </button>
-                  <button className="btn btn-primary btn-sm" onClick={() => handleApprove(t.id, 'resolve')}>
-                    ✅ Resolve
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => handleApprove(t.id, 'close')}>
-                    ✗ Close
-                  </button>
-                </div>
+                {canTakeAction ? (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button id={`hil-assign-${t.id}`} className="btn btn-secondary btn-sm" onClick={() => handleApprove(t.id, 'assign')}>
+                      Assign
+                    </button>
+                    <button id={`hil-resolve-${t.id}`} className="btn btn-primary btn-sm" onClick={() => handleApprove(t.id, 'resolve')}>
+                      Resolve
+                    </button>
+                    <button id={`hil-close-${t.id}`} className="btn btn-ghost btn-sm" onClick={() => handleApprove(t.id, 'close')}>
+                      Close
+                    </button>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '11px', color: 'var(--neutral-4)', fontStyle: 'italic', padding: '6px 10px', background: 'var(--neutral-8)', borderRadius: 'var(--radius-sm)' }}>
+                    View only
+                  </span>
+                )}
               </div>
             ))}
           </div>

@@ -61,15 +61,15 @@ export default function SLAConfig() {
   return (
     <div>
       <div className="page-banner" style={{ marginBottom: '24px', borderRadius: 'var(--radius-md)' }}>
-        <h1>SLA Configuration (HIL-1)</h1>
+        <h1>SLA Configuration</h1>
         <p>Configure response and resolution time targets per priority level. All changes require Admin approval before AI agents use them.</p>
       </div>
 
-      {/* HIL-1 callout */}
+      {/* Approval gate callout */}
       <div style={{ background: 'var(--warning-light)', border: '1px solid var(--warning)', borderRadius: 'var(--radius-md)', padding: '14px 18px', marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
         <span style={{ fontSize: '20px' }}>⚠️</span>
         <div>
-          <div style={{ fontWeight: 700, fontSize: '13px', color: '#92400E', marginBottom: '3px' }}>HIL-1 Checkpoint Active</div>
+          <div style={{ fontWeight: 700, fontSize: '13px', color: '#92400E', marginBottom: '3px' }}>Admin Approval Required</div>
           <div style={{ fontSize: '12px', color: '#92400E' }}>
             AI agents will not apply SLA rules until an Admin explicitly approves them. Any edit resets approval status and requires re-approval.
           </div>
@@ -79,7 +79,7 @@ export default function SLAConfig() {
       {message && (
         <div style={{ background: 'var(--primary-light)', border: '1px solid var(--primary-border)', borderRadius: 'var(--radius-sm)', padding: '10px 16px', marginBottom: '20px', fontSize: '13px', color: 'var(--primary)' }}>
           {message}
-          <button onClick={() => setMessage('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neutral-4)' }}>×</button>
+          <button id="sla-dismiss-message" onClick={() => setMessage('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neutral-4)' }}>×</button>
         </div>
       )}
 
@@ -138,6 +138,7 @@ export default function SLAConfig() {
 
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
+                      id={`sla-save-${config.priority}`}
                       className="btn btn-outline btn-sm"
                       onClick={() => handleSave(config.priority)}
                       disabled={saving[config.priority] === 'saving'}
@@ -146,6 +147,7 @@ export default function SLAConfig() {
                     </button>
                     {!config.approved_by_admin ? (
                       <button
+                        id={`sla-approve-${config.priority}`}
                         className="btn btn-primary btn-sm"
                         onClick={() => handleApprove(config.priority, true)}
                         disabled={saving[`${config.priority}_approve`]}
@@ -154,6 +156,7 @@ export default function SLAConfig() {
                       </button>
                     ) : (
                       <button
+                        id={`sla-revoke-${config.priority}`}
                         className="btn btn-ghost btn-sm"
                         onClick={() => handleApprove(config.priority, false)}
                       >

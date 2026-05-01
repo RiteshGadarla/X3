@@ -101,7 +101,7 @@ export default function CustomerPortal() {
               </div>
             </div>
           </div>
-          <button className="btn btn-primary" onClick={() => setSubmitted(null)}>
+          <button id="portal-submit-another" className="btn btn-primary" onClick={() => setSubmitted(null)}>
             Submit Another Ticket
           </button>
         </div>
@@ -118,10 +118,10 @@ export default function CustomerPortal() {
           <div style={{ fontWeight: 800, fontSize: '20px', color: 'var(--neutral-0)' }}>centific aegis.ai</div>
           
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '24px' }}>
-            <button className={`btn ${mode === 'submit' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setMode('submit'); setError(''); setStatusResult(null); }}>
+            <button id="portal-mode-submit" className={`btn ${mode === 'submit' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setMode('submit'); setError(''); setStatusResult(null); }}>
               Submit Ticket
             </button>
-            <button className={`btn ${mode === 'status' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setMode('status'); setError(''); }}>
+            <button id="portal-mode-status" className={`btn ${mode === 'status' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setMode('status'); setError(''); }}>
               Check Status
             </button>
           </div>
@@ -210,7 +210,7 @@ export default function CustomerPortal() {
               )}
 
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setForm({ customer_name: '', customer_email: '', subject: '', description: '', category: 'General', ai_disclosure_accepted: false })}>
+                <button id="portal-form-clear" type="button" className="btn btn-ghost" onClick={() => setForm({ customer_name: '', customer_email: '', subject: '', description: '', category: 'General', ai_disclosure_accepted: false })}>
                   Clear
                 </button>
                 <button id="portal-submit" type="submit" className="btn btn-primary" disabled={loading}>
@@ -238,7 +238,7 @@ export default function CustomerPortal() {
               )}
               
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button type="submit" className="btn btn-primary" disabled={loading}>
+                <button id="portal-check-status" type="submit" className="btn btn-primary" disabled={loading}>
                   {loading ? '⏳ Checking…' : '🔍 Check Status'}
                 </button>
               </div>

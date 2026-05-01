@@ -148,21 +148,21 @@ async def store_ticket_fingerprint(ticket_ref: str, subject: str, description: s
     )
     logger.info(f"Qdrant: Stored fingerprint for {ticket_ref}")
 
-async def find_similar_tickets(ticket_ref: str, subject: str, description: str, category: str, threshold: float = 0.4) -> list[dict]:
+async def find_similar_tickets(ticket_ref: str, subject: str, description: str, category: str, threshold: float = 0.8) -> list[dict]:
     client = await get_qdrant()
     text = f"{subject} {description} {category}"
-    
+
     if not text.strip():
         return []
-        
-    # Only consider tickets from the last 24h
+
+    # Search within the last 30 days (BRD: recurring issue = 3 in 30 days)
     now = datetime.now(timezone.utc).timestamp()
     hits = await client.query(
         collection_name=TICKETS_COLLECTION,
         query_text=text,
         query_filter=rest.Filter(
             must=[
-                rest.FieldCondition(key="timestamp", range=rest.Range(gte=now - 86400))
+                rest.FieldCondition(key="timestamp", range=rest.Range(gte=now - 2592000))
             ]
         ),
         limit=6

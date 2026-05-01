@@ -73,9 +73,9 @@ export default function RBACDashboard() {
 
       {/* Roles */}
       <Card 
-        title={`👥 Roles (${roles.length})`} 
+        title={`👥 Roles (${roles.length})`}
         headerAction={
-          <Button size="sm" onClick={() => { setModal('addRole'); setError('') }}>
+          <Button id="rbac-add-role" size="sm" onClick={() => { setModal('addRole'); setError('') }}>
             + Add Role
           </Button>
         }
@@ -107,7 +107,7 @@ export default function RBACDashboard() {
       <Card
         title={`🧑‍💼 Users (${users.length})`}
         headerAction={
-          <Button size="sm" onClick={() => { setModal('addUser'); setError('') }}>
+          <Button id="rbac-add-user" size="sm" onClick={() => { setModal('addUser'); setError('') }}>
             + Add User
           </Button>
         }
@@ -144,10 +144,10 @@ export default function RBACDashboard() {
                   <td style={{ fontSize: '12px', color: 'var(--neutral-5)' }}>{new Date(u.created_at).toLocaleDateString()}</td>
                   <td>
                     <div style={{ display: 'flex', gap: '6px' }}>
-                      <Button variant="ghost" size="sm" onClick={() => handleToggleActive(u)}>
+                      <Button id={`rbac-toggle-user-${u.id}`} variant="ghost" size="sm" onClick={() => handleToggleActive(u)}>
                         {u.is_active ? 'Deactivate' : 'Activate'}
                       </Button>
-                      <Button variant="danger" size="sm" onClick={() => handleDeleteUser(u.id)}>Delete</Button>
+                      <Button id={`rbac-delete-user-${u.id}`} variant="danger" size="sm" onClick={() => handleDeleteUser(u.id)}>Delete</Button>
                     </div>
                   </td>
                 </tr>
@@ -164,8 +164,8 @@ export default function RBACDashboard() {
         title="Add New User"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setModal(null)}>Cancel</Button>
-            <Button onClick={handleAddUser} disabled={saving}>{saving ? 'Creating…' : 'Create User'}</Button>
+            <Button id="rbac-modal-cancel-user" variant="ghost" onClick={() => setModal(null)}>Cancel</Button>
+            <Button id="rbac-modal-create-user" onClick={handleAddUser} disabled={saving}>{saving ? 'Creating…' : 'Create User'}</Button>
           </>
         }
       >
@@ -200,8 +200,8 @@ export default function RBACDashboard() {
         title="Add New Role"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setModal(null)}>Cancel</Button>
-            <Button onClick={handleAddRole} disabled={saving}>{saving ? 'Creating…' : 'Create Role'}</Button>
+            <Button id="rbac-modal-cancel-role" variant="ghost" onClick={() => setModal(null)}>Cancel</Button>
+            <Button id="rbac-modal-create-role" onClick={handleAddRole} disabled={saving}>{saving ? 'Creating…' : 'Create Role'}</Button>
           </>
         }
       >

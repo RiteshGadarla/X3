@@ -1,7 +1,7 @@
 """API v1 router — aggregates all route modules."""
 
 from fastapi import APIRouter
-from app.api.v1.routes import auth, roles, users, tickets, sla, system, sdlc, actions, documents, analytics
+from app.api.v1.routes import auth, roles, users, tickets, sla, system, sdlc, actions, documents, analytics, kb
 
 api_router = APIRouter()
 
@@ -15,3 +15,4 @@ api_router.include_router(sdlc.router)
 api_router.include_router(actions.router)
 api_router.include_router(documents.router)
 api_router.include_router(analytics.router)
+api_router.include_router(kb.router)

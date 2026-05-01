@@ -1,37 +1,43 @@
-import useAuthStore from '../../store/authStore'
+import { useRole } from '../../hooks/useRole'
+import Icon from '../ui/Icons'
 
 export default function TopBar({ title }) {
-  const { user, getInitials } = useAuthStore()
+  const { role, title: roleTitle, initials, color } = useRole()
 
   return (
     <header className="topbar">
       <h1 className="topbar-title">{title}</h1>
       <div className="topbar-right">
         {/* Live indicator */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--success)' }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--success)', fontWeight: 600 }}>
+          <span className="live-pulse" />
           Live
         </div>
 
         {/* Notification bell */}
-        <div style={{
-          width: '32px', height: '32px',
-          background: 'var(--neutral-8)',
-          borderRadius: '50%',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '15px', cursor: 'pointer',
-          border: '1px solid var(--neutral-7)',
-          transition: 'background .15s',
-        }}>
-          🔔
-        </div>
+        <button
+          aria-label="Notifications"
+          title="Notifications"
+          style={{
+            width: '34px', height: '34px',
+            background: 'var(--neutral-8)',
+            borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+            border: '1px solid var(--neutral-7)',
+            color: 'var(--neutral-3)',
+            transition: 'all .15s',
+          }}
+        >
+          <Icon.bell />
+        </button>
 
-        {/* Avatar */}
+        {/* Role label */}
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-0)' }}>{user?.full_name}</div>
-          <div style={{ fontSize: '10px', color: 'var(--neutral-4)' }}>{user?.role}</div>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--neutral-0)' }}>{roleTitle}</div>
+          <div style={{ fontSize: '10px', color: 'var(--neutral-4)' }}>{role}</div>
         </div>
-        <div className="topbar-avatar">{getInitials()}</div>
+        <div className="topbar-avatar" style={{ background: color }}>{initials}</div>
       </div>
     </header>
   )

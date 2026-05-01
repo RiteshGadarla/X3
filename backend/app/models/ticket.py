@@ -52,6 +52,17 @@ class Ticket(Base):
     # AI disclosure checkbox (UI-09 requirement)
     ai_disclosure_accepted: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # ── Project isolation (multi-tenancy) ──
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    project: Mapped["Project | None"] = relationship("Project", back_populates="tickets")
+
+    # ── AG-08: VIP escalation flag ──
+    is_vip_customer: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # ── AG-03: Recurring issue & conflict flags ──
+    recurring_issue: Mapped[bool] = mapped_column(Boolean, default=False)
+    dedup_conflict_flag: Mapped[bool] = mapped_column(Boolean, default=False)
+
     # ── Phase 2: Ticket Splitting (AG-11) ──
     parent_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id"), nullable=True)
     children: Mapped[list["Ticket"]] = relationship(

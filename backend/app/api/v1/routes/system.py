@@ -164,4 +164,5 @@ async def stream_logs(request: Request):
             
             yield f"data: {line.strip()}\\n\\n"
 
+
     return StreamingResponse(log_generator(), media_type="text/event-stream")

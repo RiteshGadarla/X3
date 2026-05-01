@@ -53,5 +53,14 @@ class AgentState(TypedDict):
     portal_reply: Optional[str]
     data_consent_flag: bool
 
+    # ── Extended: VIP, recurring, conflict ──
+    is_vip_customer: bool
+    recurring_issue: bool
+    dedup_conflict: bool
+
+    # ── AG-10 KB draft content (persisted to KBArticle table by graph.py) ──
+    _kb_draft_title: Optional[str]
+    _kb_draft_content: Optional[str]
+
     # LangGraph standard message passing
     messages: Annotated[List[BaseMessage], add_messages]

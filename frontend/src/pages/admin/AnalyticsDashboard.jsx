@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 import client from '../../api/client'
+import {
+  DonutChart, BarChart, LineChart, Gauge, Heatmap, BRAND
+} from '../../components/charts/Charts'
+import Icon from '../../components/ui/Icons'
+import DashboardHero from '../../components/ui/DashboardHero'
 
 export default function AnalyticsDashboard() {
   const [data, setData] = useState({
@@ -13,9 +18,7 @@ export default function AnalyticsDashboard() {
   const [sweepMessage, setSweepMessage] = useState('')
   const [sweeping, setSweeping] = useState(false)
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [])
+  useEffect(() => { fetchAnalytics() }, [])
 
   const fetchAnalytics = async () => {
     try {
@@ -29,151 +32,223 @@ export default function AnalyticsDashboard() {
   }
 
   const triggerSweep = async () => {
-    setSweeping(true)
-    setSweepMessage('')
+    setSweeping(true); setSweepMessage('')
     try {
       const res = await client.post('/analytics/sweep')
-      setSweepMessage(`✅ Sweep complete: ${res.data.details.deleted_records} records deleted (Older than ${res.data.details.cutoff_date.substring(0, 10)})`)
+      setSweepMessage(`Sweep complete: ${res.data.details.deleted_records} records deleted (Older than ${res.data.details.cutoff_date.substring(0, 10)})`)
     } catch (err) {
-      setSweepMessage(`❌ Sweep failed: ${err.message}`)
+      setSweepMessage(`Sweep failed: ${err.message}`)
     } finally {
       setSweeping(false)
     }
   }
 
-  if (loading) {
-    return <div style={{ padding: '20px' }}>Loading analytics...</div>
-  }
+  if (loading) return <div style={{ padding: '20px' }}>Loading analytics...</div>
 
-  // Calculate sentiment percentages
   const totalSentiments = Object.values(data.sentiment_distribution).reduce((a, b) => a + b, 0) || 1
-  
+  const resolvedRate    = data.total_tickets ? Math.round((data.resolved_tickets / data.total_tickets) * 100) : 0
+  const breachRate      = data.total_tickets ? Math.round((data.sla_breached_active / data.total_tickets) * 100) : 0
+  const slaHealth       = Math.max(0, 100 - breachRate)
+
+  const sentimentDist = Object.entries(data.sentiment_distribution).map(([k, v]) => ({
+    label: k,
+    value: v,
+    color: k === 'positive' ? BRAND.success
+          : k === 'angry'    ? BRAND.error
+          : k === 'negative' ? BRAND.warning
+          : BRAND.primary,
+  }))
+
+  const heatRows = (data.voc_heatmap || []).map(r => r.day)
+  const heatVals = (data.voc_heatmap || []).map(r => [r.positive, r.neutral, r.negative, r.angry])
+  const heatCols = [
+    { key: 'positive', label: 'Positive', color: BRAND.success },
+    { key: 'neutral',  label: 'Neutral',  color: BRAND.primary },
+    { key: 'negative', label: 'Negative', color: BRAND.warning },
+    { key: 'angry',    label: 'Angry',    color: BRAND.error   },
+  ]
+
+  // Real weekly volume series derived from heatmap totals
+  const volumeSeries = (data.voc_heatmap || []).map(r => ({
+    label: r.day,
+    value: (r.positive || 0) + (r.neutral || 0) + (r.negative || 0) + (r.angry || 0),
+  }))
+
+  // Sentiment shape — bar split
+  const sentimentBar = sentimentDist.map(s => ({
+    label: s.label.charAt(0).toUpperCase() + s.label.slice(1),
+    value: s.value,
+    color: s.color,
+  }))
+
+  const positiveShare = Math.round(((data.sentiment_distribution.positive || 0) / totalSentiments) * 100)
+  const angryCount    = data.sentiment_distribution.angry || 0
+  const volumeTotal   = volumeSeries.reduce((s, v) => s + v.value, 0)
+
+  const heroKpis = [
+    {
+      label: 'Resolution',
+      value: `${resolvedRate}%`,
+      foot: `${data.resolved_tickets}/${data.total_tickets}`,
+      tone: resolvedRate >= 80 ? 'up' : resolvedRate >= 60 ? 'warn' : 'down',
+    },
+    {
+      label: 'SLA Health',
+      value: `${slaHealth}%`,
+      foot: `${breachRate}% breached · target ≥ 95%`,
+      tone: slaHealth >= 95 ? 'up' : slaHealth >= 80 ? 'warn' : 'down',
+    },
+    {
+      label: 'Active Breaches',
+      value: data.sla_breached_active || 0,
+      foot: 'open SLA misses',
+      tone: (data.sla_breached_active || 0) > 0 ? 'down' : 'up',
+    },
+    {
+      label: 'Positive Voices',
+      value: `${positiveShare}%`,
+      foot: angryCount > 0 ? `${angryCount} angry flagged` : 'sentiment share',
+      tone: angryCount > 2 ? 'down' : positiveShare >= 60 ? 'up' : null,
+    },
+    {
+      label: 'Volume 7d',
+      value: volumeTotal,
+      foot: 'inbound trend',
+      sparkline: volumeSeries.length > 0 ? volumeSeries.map(v => v.value) : null,
+    },
+  ]
+
   return (
     <div>
-      <div className="page-banner" style={{ marginBottom: '24px', borderRadius: 'var(--radius-md)', background: 'var(--gradient-banner)' }}>
-        <h1 style={{ color: '#fff' }}>Analytics & Compliance</h1>
-        <p style={{ color: 'rgba(255,255,255,0.85)' }}>SLA Compliance, Voice of Customer, and Data Privacy controls.</p>
-      </div>
+      <DashboardHero
+        live="Analytics · Live"
+        title="Analytics & Compliance"
+        subtitle="Operational telemetry: SLA compliance, sentiment radar and 7-day pulse."
+        meta={`${data.total_tickets} tickets observed · ${data.resolved_tickets} resolved`}
+        kpis={heroKpis}
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '32px' }}>
-        <div className="card" style={{ borderLeft: '4px solid var(--primary)' }}>
-          <div className="card-body">
-            <div style={{ fontSize: '13px', color: 'var(--neutral-4)', fontWeight: 600 }}>TOTAL TICKETS</div>
-            <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--neutral-0)' }}>{data.total_tickets}</div>
+      {/* ── Row: Sentiment Mix + SLA Gauge (compact) + 7-Day Volume ── */}
+      <div className="dash-grid-3">
+        <div className="chart-card">
+          <div className="chart-card-head">
+            <div className="chart-card-title">
+              <span className="chart-card-title-icon"><Icon.sparkle /></span>
+              Sentiment Mix
+            </div>
+            <span className="badge badge-pink">Live</span>
           </div>
-        </div>
-        <div className="card" style={{ borderLeft: '4px solid var(--success)' }}>
-          <div className="card-body">
-            <div style={{ fontSize: '13px', color: 'var(--neutral-4)', fontWeight: 600 }}>RESOLVED (FCR & STANDARD)</div>
-            <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--success)' }}>{data.resolved_tickets}</div>
-          </div>
-        </div>
-        <div className="card" style={{ borderLeft: '4px solid var(--error)' }}>
-          <div className="card-body">
-            <div style={{ fontSize: '13px', color: 'var(--neutral-4)', fontWeight: 600 }}>ACTIVE SLA BREACHES</div>
-            <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--error)' }}>{data.sla_breached_active}</div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
-        <div className="card">
-          <div className="card-header">
-            <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--neutral-0)' }}>Customer Sentiment</h3>
-            <span className="badge badge-primary">UI-03</span>
-          </div>
-          <div className="card-body">
-            {Object.entries(data.sentiment_distribution).map(([sentiment, count]) => {
-              const percent = Math.round((count / totalSentiments) * 100)
-              let color = 'var(--neutral-4)'
-              if (sentiment === 'positive') color = 'var(--success)'
-              if (sentiment === 'angry') color = 'var(--error)'
-              if (sentiment === 'negative') color = 'var(--warning)'
-              if (sentiment === 'neutral') color = 'var(--primary)'
-
-              return (
-                <div key={sentiment} style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-1)' }}>
-                    <span style={{ textTransform: 'uppercase' }}>{sentiment}</span>
-                    <span>{count} ({percent}%)</span>
-                  </div>
-                  <div style={{ width: '100%', height: '8px', background: 'var(--neutral-7)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ width: `${percent}%`, height: '100%', background: color, transition: 'width 0.5s' }}></div>
-                  </div>
-                </div>
-              )
-            })}
+          <div className="chart-card-body">
+            {sentimentDist.length > 0
+              ? <DonutChart data={sentimentDist} size={150} centerLabel="VOICES" />
+              : <div style={{ fontSize: 13, color: 'var(--neutral-4)' }}>No sentiment data.</div>}
           </div>
         </div>
 
-        <div className="card">
-          <div className="card-header">
-            <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--neutral-0)' }}>7-Year Data Retention Policy</h3>
-            <span className="badge badge-warning">AG-17</span>
+        <div className="chart-card">
+          <div className="chart-card-head">
+            <div className="chart-card-title">
+              <span className="chart-card-title-icon"><Icon.shield /></span>
+              SLA Compliance
+            </div>
+            <span className={`badge ${slaHealth >= 90 ? 'badge-success' : slaHealth >= 75 ? 'badge-warning' : 'badge-error'}`}>
+              {slaHealth >= 90 ? 'Healthy' : slaHealth >= 75 ? 'At Risk' : 'Critical'}
+            </span>
           </div>
-          <div className="card-body">
-            <p style={{ fontSize: '13px', color: 'var(--neutral-4)', marginBottom: '20px' }}>
-              Enterprise compliance requires all support records older than 7 years to be automatically archived and deleted. You can trigger the manual sweep below.
-            </p>
-            <button 
-              onClick={triggerSweep} 
-              disabled={sweeping}
-              className="btn btn-primary" 
-              style={{ width: '100%', padding: '12px', fontSize: '14px' }}>
-              {sweeping ? '⏳ Sweeping Database...' : '🧹 Trigger Data Consent Sweep'}
-            </button>
-            
-            {sweepMessage && (
-              <div style={{ 
-                marginTop: '16px', 
-                padding: '12px', 
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '13px',
-                background: sweepMessage.startsWith('✅') ? 'var(--success-light)' : 'var(--error-light)',
-                color: sweepMessage.startsWith('✅') ? 'var(--success)' : 'var(--error)',
-                border: `1px solid ${sweepMessage.startsWith('✅') ? 'var(--success)' : 'var(--error)'}`
-              }}>
-                {sweepMessage}
+          <div className="chart-card-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <Gauge value={slaHealth} max={100} size={120} label="Health Index" color={slaHealth >= 90 ? BRAND.success : slaHealth >= 75 ? BRAND.warning : BRAND.error} />
+            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--neutral-4)', textAlign: 'center' }}>
+              Target ≥ 95% · {data.sla_breached_active} active breach{data.sla_breached_active === 1 ? '' : 'es'}
+            </div>
+          </div>
+        </div>
+
+        <div className="chart-card">
+          <div className="chart-card-head">
+            <div className="chart-card-title">
+              <span className="chart-card-title-icon"><Icon.trend /></span>
+              7-Day Volume
+            </div>
+            <span className="badge badge-primary">Inbound</span>
+          </div>
+          <div className="chart-card-body">
+            {volumeSeries.length > 0 ? (
+              <LineChart data={volumeSeries} color={BRAND.primary} label="anvol" height={150} />
+            ) : (
+              <div style={{ fontSize: 13, color: 'var(--neutral-4)', padding: '30px 0', textAlign: 'center' }}>
+                No volume data yet.
               </div>
             )}
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--neutral-0)' }}>Voice of Customer Heatmap (Mock Data)</h3>
-          <span className="badge badge-pink">UI-08</span>
-        </div>
-        <div className="card-body">
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'center' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '12px', borderBottom: '2px solid var(--neutral-7)', color: 'var(--neutral-4)' }}>Day</th>
-                  <th style={{ padding: '12px', borderBottom: '2px solid var(--neutral-7)', color: 'var(--success)' }}>Positive</th>
-                  <th style={{ padding: '12px', borderBottom: '2px solid var(--neutral-7)', color: 'var(--primary)' }}>Neutral</th>
-                  <th style={{ padding: '12px', borderBottom: '2px solid var(--neutral-7)', color: 'var(--warning)' }}>Negative</th>
-                  <th style={{ padding: '12px', borderBottom: '2px solid var(--neutral-7)', color: 'var(--error)' }}>Angry</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.voc_heatmap.map((row, idx) => {
-                  // Normalize alpha based on max value per row (~100)
-                  const getAlpha = (val) => Math.min(val / 80, 1).toFixed(2);
-                  return (
-                    <tr key={idx} style={{ borderBottom: '1px solid var(--neutral-8)' }}>
-                      <td style={{ padding: '12px', fontWeight: 600 }}>{row.day}</td>
-                      <td style={{ padding: '12px', background: `rgba(22, 163, 74, ${getAlpha(row.positive)})` }}>{row.positive}</td>
-                      <td style={{ padding: '12px', background: `rgba(89, 41, 208, ${getAlpha(row.neutral)})` }}>{row.neutral}</td>
-                      <td style={{ padding: '12px', background: `rgba(228, 144, 46, ${getAlpha(row.negative)})` }}>{row.negative}</td>
-                      <td style={{ padding: '12px', background: `rgba(220, 38, 38, ${getAlpha(row.angry)})` }}>{row.angry}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+      {/* ── Row: Sentiment bars + VoC Heatmap (compact, side-by-side) ── */}
+      <div className="dash-grid-2">
+        <div className="chart-card">
+          <div className="chart-card-head">
+            <div className="chart-card-title">
+              <span className="chart-card-title-icon"><Icon.chart /></span>
+              Sentiment Distribution
+            </div>
+            <span className="badge badge-cyan">Snapshot</span>
           </div>
+          <div className="chart-card-body">
+            {sentimentBar.length > 0
+              ? <BarChart data={sentimentBar} horizontal height={180} />
+              : <div style={{ fontSize: 13, color: 'var(--neutral-4)' }}>No data yet.</div>}
+          </div>
+        </div>
+
+        <div className="chart-card">
+          <div className="chart-card-head">
+            <div className="chart-card-title">
+              <span className="chart-card-title-icon"><Icon.beaker /></span>
+              Voice of Customer — Heatmap
+            </div>
+            <span className="badge badge-pink">Weekly</span>
+          </div>
+          <div className="chart-card-body heatmap-compact">
+            {heatRows.length > 0
+              ? <Heatmap rows={heatRows} columns={heatCols} values={heatVals} />
+              : <div style={{ fontSize: 13, color: 'var(--neutral-4)' }}>No data yet.</div>}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Last: 7-Year Data Retention (compliance, low-priority) ── */}
+      <div className="chart-card" style={{ marginTop: 6 }}>
+        <div className="chart-card-head">
+          <div className="chart-card-title">
+            <span className="chart-card-title-icon"><Icon.scale /></span>
+            7-Year Data Retention
+          </div>
+          <span className="badge badge-warning">Compliance</span>
+        </div>
+        <div className="chart-card-body" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <p style={{ fontSize: '12.5px', color: 'var(--neutral-4)', flex: '1 1 320px', margin: 0 }}>
+            Enterprise compliance requires support records older than 7 years to be archived & purged. Run a manual sweep on demand.
+          </p>
+          <button
+            id="analytics-sweep"
+            onClick={triggerSweep}
+            disabled={sweeping}
+            className="btn btn-primary btn-sm"
+            style={{ padding: '8px 16px', fontSize: '13px', flex: '0 0 auto' }}>
+            {sweeping ? 'Sweeping database…' : 'Trigger Data Consent Sweep'}
+          </button>
+          {sweepMessage && (
+            <div style={{
+              flex: '1 1 100%',
+              marginTop: 4, padding: '10px 12px',
+              borderRadius: 'var(--radius-sm)', fontSize: '12.5px',
+              background: sweepMessage.startsWith('Sweep complete') ? 'var(--success-light)' : 'var(--error-light)',
+              color: sweepMessage.startsWith('Sweep complete') ? 'var(--success)' : 'var(--error)',
+              border: `1px solid ${sweepMessage.startsWith('Sweep complete') ? 'var(--success)' : 'var(--error)'}`
+            }}>
+              {sweepMessage}
+            </div>
+          )}
         </div>
       </div>
     </div>

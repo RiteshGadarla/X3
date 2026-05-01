@@ -143,18 +143,21 @@ async def ag_06_sla_clocks(state: AgentState):
 
 
 async def ag_08_escalation_guard(state: AgentState):
-    """AG-08: Escalation Guard. Flags for HIL if needed."""
+    """AG-08: Escalation Guard. Flags for HIL if needed (HIL-3/4)."""
     sentiment = state.get("sentiment")
     priority = state.get("priority")
     category = state.get("category", "").lower()
     ticket_ref = state.get("ticket_ref")
-    
+    is_vip = state.get("is_vip_customer", False)
+
     logger.info(f"--- AG-08: Running Escalation Guard for {ticket_ref} ---")
     escalate = False
     reason = ""
-    
-    # HIL-3/4 rules: Angry, Billing/Legal, or High Priority (P1/P2)
-    if sentiment == SentimentLabel.ANGRY.value:
+
+    if is_vip:
+        escalate = True
+        reason = "VIP customer"
+    elif sentiment == SentimentLabel.ANGRY.value:
         escalate = True
         reason = "Angry sentiment detected"
     elif "billing" in category or "legal" in category:
@@ -163,11 +166,11 @@ async def ag_08_escalation_guard(state: AgentState):
     elif priority in [Priority.P1.value, Priority.P2.value]:
         escalate = True
         reason = f"High priority level: {priority}"
-        
+
     if escalate:
         logger.info(f"AG-08: ESCALATION TRIGGERED. Reason: {reason}")
         return {"escalate": True, "status": TicketStatus.PENDING_HIL.value}
-        
+
     logger.info("AG-08: No escalation triggers found. Routing to standard queue.")
     return {"escalate": False}
 
@@ -223,46 +226,115 @@ async def ag_11_ticket_splitter(state: AgentState, config: RunnableConfig):
         return {"has_multiple_issues": False, "child_ticket_ids": []}
 
 
+_SENTIMENT_CONFLICT_MAP = {
+    # pairs that indicate contradictory reports on the same issue
+    ("positive", "angry"), ("positive", "negative"),
+    ("angry", "positive"), ("negative", "positive"),
+}
+
 async def ag_03_dedup_linker(state: AgentState):
     """AG-03: Link to Master Ticket.
-    Uses Qdrant-backed vector similarity at zap speed to find
-    similar incoming tickets and group them under one Master Ticket.
+    - Finds Qdrant-similar tickets and groups them under one Master Ticket.
+    - Detects conflicting sentiment reports (anti-merge guardrail).
+    - Flags recurring issues (same category 3+ times in 30 days).
     """
     ticket_ref = state.get("ticket_ref")
     subject = state.get("subject", "")
     description = state.get("description", "")
     category = state.get("category", "")
-    
-    logger.info(f"--- AG-03: Qdrant Dedup Check for {ticket_ref} ---")
-    
+    incoming_sentiment = state.get("sentiment", "neutral")
+
+    logger.info(f"--- AG-03: Qdrant Dedup + Recurring Check for {ticket_ref} ---")
+
+    # ── Recurring issue check (DB query) ──
+    recurring = False
+    try:
+        from app.db.session import AsyncSessionLocal
+        from datetime import timedelta
+        thirty_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        async with AsyncSessionLocal() as _db:
+            count = await _db.scalar(
+                select(func.count(Ticket.id)).where(
+                    Ticket.category == category,
+                    Ticket.created_at >= thirty_ago,
+                    Ticket.ticket_ref != ticket_ref,
+                )
+            )
+        if count and count >= 2:  # 2 prior + current = 3 total
+            recurring = True
+            logger.warning(f"AG-03: RECURRING ISSUE — category '{category}' seen {count + 1}x in 30 days")
+    except Exception as e:
+        logger.warning(f"AG-03: Recurring check failed: {e}")
+
+    # ── Qdrant similarity dedup ──
     try:
         from app.core.qdrant import find_similar_tickets
-        matches = await find_similar_tickets(ticket_ref, subject, description, category, threshold=0.4)
-        
+        matches = await find_similar_tickets(ticket_ref, subject, description, category)
+
         if matches:
-            top_match = matches[0]
+            top_ref = matches[0]["ticket_ref"]
+            top_sim = matches[0]["similarity"]
+
+            # Resolve master ticket_ref → DB id, and check for sentiment conflict
+            master_db_id = None
+            conflict = False
+            try:
+                async with AsyncSessionLocal() as _db:
+                    master = await _db.scalar(
+                        select(Ticket).where(Ticket.ticket_ref == top_ref)
+                    )
+                    if master:
+                        master_db_id = master.id
+                        master_sentiment = master.sentiment.value if hasattr(master.sentiment, "value") else str(master.sentiment)
+                        if (incoming_sentiment, master_sentiment) in _SENTIMENT_CONFLICT_MAP:
+                            conflict = True
+                            logger.warning(
+                                f"AG-03: CONFLICT DETECTED — incoming={incoming_sentiment}, "
+                                f"master={master_sentiment}. Flagging for HIL, no auto-merge."
+                            )
+            except Exception as e:
+                logger.warning(f"AG-03: Conflict check DB query failed: {e}")
+
+            if conflict:
+                return {
+                    "is_duplicate": False,
+                    "master_ticket_id": None,
+                    "linked_ticket_ids": [],
+                    "dedup_conflict": True,
+                    "recurring_issue": recurring,
+                    "escalate": True,
+                    "status": TicketStatus.PENDING_HIL.value,
+                }
+
             logger.info(
-                f"AG-03: DUPLICATE DETECTED — {ticket_ref} matches {top_match['ticket_ref']} "
-                f"(similarity: {top_match['similarity']}, shared: {top_match['shared_keywords'][:5]})"
+                f"AG-03: DUPLICATE DETECTED — {ticket_ref} matches {top_ref} "
+                f"(similarity: {top_sim}, master_id: {master_db_id})"
             )
             return {
                 "is_duplicate": True,
-                "master_ticket_id": None,  # Would be resolved to DB ID by the orchestrator
+                "master_ticket_id": master_db_id,
                 "linked_ticket_ids": [m["ticket_ref"] for m in matches],
+                "dedup_conflict": False,
+                "recurring_issue": recurring,
             }
-        else:
-            logger.info(f"AG-03: No duplicates found for {ticket_ref}")
-            return {
-                "is_duplicate": False,
-                "master_ticket_id": None,
-                "linked_ticket_ids": [],
-            }
+
+        logger.info(f"AG-03: No duplicates found for {ticket_ref}")
+        return {
+            "is_duplicate": False,
+            "master_ticket_id": None,
+            "linked_ticket_ids": [],
+            "dedup_conflict": False,
+            "recurring_issue": recurring,
+        }
+
     except Exception as e:
         logger.warning(f"AG-03: Qdrant dedup failed (fallback: no dedup): {e}")
         return {
             "is_duplicate": False,
             "master_ticket_id": None,
             "linked_ticket_ids": [],
+            "dedup_conflict": False,
+            "recurring_issue": recurring,
         }
 
 
@@ -484,10 +556,13 @@ async def ag_10_kb_generation(state: AgentState, config: RunnableConfig):
         try:
             result = await structured_llm.ainvoke(prompt)
             logger.info(f"AG-10: KB draft generated for {ticket_ref}")
-            return {"kb_draft_id": 999}
+            return {
+                "_kb_draft_title": result.draft_title,
+                "_kb_draft_content": result.draft_content,
+            }
         except Exception as e:
             logger.error(f"AG-10: KB Generation failed: {e}")
-            
+
     return {}
 
 

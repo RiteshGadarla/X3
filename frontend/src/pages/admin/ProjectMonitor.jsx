@@ -121,7 +121,7 @@ export default function ProjectMonitor() {
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button type="submit" className="btn btn-primary" disabled={uploading || !file}>
+              <button id="monitor-upload" type="submit" className="btn btn-primary" disabled={uploading || !file}>
                 {uploading ? '⏳ Uploading & Embedding...' : '📤 Upload to Qdrant'}
               </button>
             </div>

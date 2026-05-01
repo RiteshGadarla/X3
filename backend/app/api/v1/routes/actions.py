@@ -11,9 +11,7 @@ from sqlalchemy import select, func
 
 from app.db.session import get_db
 from app.models.ticket import Ticket, TicketStatus, Priority, SentimentLabel
-from app.models.user import User
 from app.schemas.ticket import ActionCommand, ActionResult
-from app.api.deps import get_current_user
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -179,7 +177,6 @@ ACTION_HANDLERS = {
 async def execute_action(
     command: ActionCommand,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     """Execute a JSON-based action command.
     This endpoint is the hook point for future avatar/voice integration.
@@ -211,7 +208,7 @@ async def execute_action(
 
 
 @router.get("/available")
-async def list_available_actions(_: User = Depends(get_current_user)):
+async def list_available_actions():
     """List all available action commands with descriptions."""
     return {
         "actions": [

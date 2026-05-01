@@ -1,8 +1,9 @@
 """
 CSAgent — FastAPI Application Entry Point
-Phase 2: Foundation + Agentic Automation + Qdrant Vector DB
+Phase 3: Foundation + Agentic Automation + Qdrant + Auto-sweep scheduler
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +17,20 @@ from app.api.v1.router import api_router
 settings = get_settings()
 configure_logging()
 logger = get_logger(__name__)
+
+
+async def _daily_data_sweep():
+    """AG-17 auto-sweep — runs once every 24 hours."""
+    while True:
+        await asyncio.sleep(86400)  # 24 h
+        try:
+            from app.db.session import AsyncSessionLocal
+            from app.services.langgraph.agents import ag_17_data_consent
+            async with AsyncSessionLocal() as db:
+                result = await ag_17_data_consent(db)
+            logger.info(f"AG-17 scheduled sweep complete: {result}")
+        except Exception as e:
+            logger.error(f"AG-17 scheduled sweep failed: {e}")
 
 
 @asynccontextmanager
@@ -35,10 +50,15 @@ async def lifespan(app: FastAPI):
     from app.core.redis import init_redis, close_redis
     await init_redis()
 
+    # Start AG-17 daily auto-sweep background task
+    sweep_task = asyncio.create_task(_daily_data_sweep())
+    logger.info("🗑️ AG-17 daily data retention sweep scheduled (24h interval)")
+
     clear_log_file()
     yield
 
     # Shutdown
+    sweep_task.cancel()
     await close_redis()
     await close_qdrant()
     logger.info("🛑 Shutting down CSAgent backend")
@@ -74,7 +94,7 @@ async def health_check():
         "status": "ok",
         "app": settings.app_name,
         "env": settings.app_env,
-        "phase": 2,
+        "phase": 3,
         "qdrant": qdrant_stats,
     }
 

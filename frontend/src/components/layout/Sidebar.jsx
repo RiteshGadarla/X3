@@ -1,113 +1,128 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import useAuthStore from '../../store/authStore'
+import { useRole } from '../../hooks/useRole'
+import Icon from '../ui/Icons'
 
-const NAV_ITEMS = [
-  {
-    section: 'Support',
-    links: [
-      { to: '/support/queue',      label: 'Ticket Queue',     icon: '🎫' },
-      { to: '/support/escalation', label: 'HIL Escalation',   icon: '🚨' },
-      { to: '/support/sdlc',       label: 'SDLC Tracker',     icon: '🏗️' },
-    ],
-  },
-  {
-    section: 'Command',
-    links: [
-      { to: '/support/commands',  label: 'Command Center',   icon: '⚡' },
-    ],
-  },
-  {
-    section: 'Admin',
-    links: [
-      { to: '/admin/rbac', label: 'RBAC Dashboard', icon: '👥' },
-      { to: '/admin/sla',  label: 'SLA Config',     icon: '⏱️' },
-      { to: '/admin/monitor', label: 'Project Monitor', icon: '📈' },
-    ],
-  },
-  {
-    section: 'Portal',
-    links: [
-      { to: '/portal', label: 'Customer Portal', icon: '🌐' },
-    ],
-  },
-]
+// Icon-only nav. Labels live in `title` for tooltip.
+const ROLE_NAV = {
+  Admin: [
+    {
+      section: 'OPS',
+      links: [
+        { label: 'Ticket Queue',   icon: <Icon.queue />,   path: 'queue' },
+        { label: 'HIL Escalation', icon: <Icon.alert />,   path: 'escalation' },
+        { label: 'SDLC Tracker',   icon: <Icon.build />,   path: 'sdlc' },
+        { label: 'KB Articles',    icon: <Icon.book />,    path: 'kb' },
+        { label: 'Command Centre', icon: <Icon.zap />,     path: 'commands' },
+      ],
+    },
+    {
+      section: 'ADMIN',
+      links: [
+        { label: 'RBAC Dashboard',  icon: <Icon.users />,   path: 'rbac' },
+        { label: 'SLA Config',      icon: <Icon.clock />,   path: 'sla' },
+        { label: 'Project Monitor', icon: <Icon.monitor />, path: 'monitor' },
+        { label: 'Analytics',       icon: <Icon.chart />,   path: 'analytics' },
+        { label: 'VP Dashboard',    icon: <Icon.trophy />,  path: 'vp-view' },
+      ],
+    },
+  ],
+  Manager: [
+    {
+      section: 'OPS',
+      links: [
+        { label: 'Ticket Queue',   icon: <Icon.queue />, path: 'queue' },
+        { label: 'HIL Escalation', icon: <Icon.alert />, path: 'escalation' },
+        { label: 'SDLC Tracker',   icon: <Icon.build />, path: 'sdlc' },
+        { label: 'KB Articles',    icon: <Icon.book />,  path: 'kb' },
+      ],
+    },
+    {
+      section: 'MGR',
+      links: [
+        { label: 'Analytics',       icon: <Icon.chart />,   path: 'analytics' },
+        { label: 'SLA Config',      icon: <Icon.clock />,   path: 'sla' },
+        { label: 'Project Monitor', icon: <Icon.monitor />, path: 'monitor' },
+      ],
+    },
+  ],
+  'Support Agent': [
+    {
+      section: 'SUP',
+      links: [
+        { label: 'Ticket Queue',   icon: <Icon.queue />, path: 'queue' },
+        { label: 'HIL Escalation', icon: <Icon.alert />, path: 'escalation' },
+        { label: 'SDLC Tracker',   icon: <Icon.build />, path: 'sdlc' },
+        { label: 'KB Articles',    icon: <Icon.book />,  path: 'kb' },
+      ],
+    },
+  ],
+  'VP Customer Success': [
+    {
+      section: 'EXEC',
+      links: [
+        { label: 'VP Dashboard', icon: <Icon.trophy />, path: 'dashboard' },
+        { label: 'Analytics',    icon: <Icon.chart />,  path: 'analytics' },
+        { label: 'Ticket Queue', icon: <Icon.queue />,  path: 'queue' },
+      ],
+    },
+  ],
+  Legal: [
+    {
+      section: 'LGL',
+      links: [
+        { label: 'KB Articles',  icon: <Icon.book />,  path: 'kb' },
+        { label: 'Ticket Queue', icon: <Icon.queue />, path: 'queue' },
+      ],
+    },
+  ],
+}
 
 export default function Sidebar() {
-  const { user, logout, getInitials } = useAuthStore()
+  const { role, title, initials, color, basePath } = useRole()
   const navigate = useNavigate()
-
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
+  const groups = ROLE_NAV[role] || []
 
   return (
-    <aside className="sidebar">
-      {/* Logo */}
+    <aside className="sidebar sidebar--icons">
+      {/* Logo mark only */}
       <div className="sidebar-logo">
         <div className="sidebar-logo-mark">C</div>
-        <div>
-          <div className="sidebar-logo-text">centific</div>
-          <div className="sidebar-logo-sub">aegis.ai · CSAgent</div>
-        </div>
       </div>
 
-      {/* Phase tag */}
-      <div style={{ padding: '8px 20px 0' }}>
-        <span className="section-tag">Phase 2</span>
-      </div>
-
-      {/* Navigation */}
+      {/* Navigation — icons only */}
       <nav className="sidebar-nav">
-        {NAV_ITEMS.map((group) => (
+        {groups.map((group, gi) => (
           <div key={group.section}>
-            <div className="sidebar-section-label">{group.section}</div>
+            {gi > 0 && <div className="sidebar-divider" />}
             {group.links.map((link) => (
               <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) => isActive ? 'active' : ''}
+                key={link.path}
+                to={`${basePath}/${link.path}`}
+                title={link.label}
+                aria-label={link.label}
+                className={({ isActive }) => `sidebar-icon-link${isActive ? ' active' : ''}`}
               >
-                <span>{link.icon}</span>
-                {link.label}
+                {link.icon}
               </NavLink>
             ))}
           </div>
         ))}
       </nav>
 
-      {/* User footer */}
-      <div style={{
-        padding: '16px 20px',
-        borderTop: '1px solid var(--neutral-7)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-      }}>
-        <div className="topbar-avatar" style={{ flexShrink: 0 }}>
-          {getInitials()}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--neutral-0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {user?.full_name}
-          </div>
-          <div style={{ fontSize: '10px', color: 'var(--neutral-4)' }}>{user?.role}</div>
+      {/* Avatar + role switch */}
+      <div className="sidebar-footer">
+        <div className="topbar-avatar" style={{ background: color }} title={`${title} · ${role}`}>
+          {initials}
         </div>
         <button
-          onClick={handleLogout}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '16px',
-            color: 'var(--neutral-4)',
-            padding: '4px',
-            borderRadius: '4px',
-            transition: 'color .15s',
-          }}
-          title="Logout"
+          id="sidebar-role-switch"
+          onClick={() => navigate('/')}
+          className="sidebar-icon-link"
+          title="Switch role"
+          aria-label="Switch role"
+          style={{ marginTop: '8px' }}
         >
-          ↩
+          <Icon.swap />
         </button>
       </div>
     </aside>

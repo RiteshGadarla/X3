@@ -1,6 +1,7 @@
 import { Badge } from '../ui/Badge';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useRole } from '../../hooks/useRole';
 
 const PRIORITY_BADGE = {
   P1: 'error',
@@ -52,12 +53,14 @@ function SLATimer({ deadline }) {
 
 export default function TicketRow({ ticket }) {
   const navigate = useNavigate();
+  const { basePath } = useRole();
+  const goToTicket = () => navigate(`${basePath}/ticket/${ticket.id}`);
 
   return (
     <tr
-      onClick={() => navigate(`/support/ticket/${ticket.id}`)}
+      onClick={goToTicket}
       style={{ cursor: 'pointer', transition: 'background .1s' }}
-      title="Click to view ticket details"
+      title="Click row or button to view ticket"
     >
       <td><span style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 600, color: 'var(--primary)' }}>{ticket.ticket_ref}</span></td>
       <td>
@@ -74,6 +77,16 @@ export default function TicketRow({ ticket }) {
         {ticket.routing_target && (
           <div style={{ fontSize: '10px', color: 'var(--cyan)', marginTop: '2px' }}>→ {ticket.routing_target}</div>
         )}
+      </td>
+      <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+        <button
+          id={`ticket-view-${ticket.id}`}
+          className="btn btn-secondary btn-sm"
+          onClick={goToTicket}
+          title="Open ticket details"
+        >
+          View →
+        </button>
       </td>
     </tr>
   );

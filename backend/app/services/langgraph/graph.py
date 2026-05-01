@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.ticket import Ticket, Priority, TicketStatus, SentimentLabel
+from app.models.kb_article import KBArticle, KBArticleStatus
+from app.models.notification import Notification, NotificationStatus
 from .state import AgentState
 from app.core.logging import get_logger
 
@@ -141,11 +143,8 @@ csagent_graph = build_graph()
 
 
 async def process_ticket(ticket_id: int, db: AsyncSession):
-    """
-    Run the LangGraph pipeline for a newly submitted ticket.
-    Updates the database with the results.
-    """
-    # Fetch ticket
+    """Run the LangGraph pipeline for a newly submitted ticket and sync state back to DB."""
+    from app.models.user import User
     logger.info(f"Processing ticket ID: {ticket_id}")
     result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
     ticket = result.scalar_one_or_none()
@@ -188,6 +187,12 @@ async def process_ticket(ticket_id: int, db: AsyncSession):
         "kb_draft_id": None,
         "portal_reply": None,
         "data_consent_flag": False,
+        # Extended
+        "is_vip_customer": ticket.is_vip_customer,
+        "recurring_issue": ticket.recurring_issue,
+        "dedup_conflict": ticket.dedup_conflict_flag,
+        "_kb_draft_title": None,
+        "_kb_draft_content": None,
     }
     
     # Execute graph
@@ -207,8 +212,46 @@ async def process_ticket(ticket_id: int, db: AsyncSession):
     ticket.sdlc_qa_ok = final_state.get("sdlc_qa_confirmed", ticket.sdlc_qa_ok)
     ticket.loop_count = final_state.get("loop_count", ticket.loop_count)
     
-    # Phase 3 fields (logging/saving as needed)
-    # portal_reply and kb_draft_id could be saved to related tables. We update status/resolution directly.
+    # Extended fields
+    ticket.is_vip_customer = final_state.get("is_vip_customer", ticket.is_vip_customer)
+    ticket.recurring_issue = final_state.get("recurring_issue", ticket.recurring_issue)
+    ticket.dedup_conflict_flag = final_state.get("dedup_conflict", ticket.dedup_conflict_flag)
+
+    # AG-03: link child ticket to master if dedup matched
+    resolved_master_id = final_state.get("master_ticket_id")
+    if resolved_master_id:
+        ticket.master_ticket_id = resolved_master_id
+        logger.info(f"Ticket {ticket.ticket_ref} linked to master ID {resolved_master_id}")
+
+    # Persist KB draft produced by AG-10
+    kb_draft_content = final_state.get("_kb_draft_content")
+    kb_draft_title = final_state.get("_kb_draft_title")
+    if kb_draft_title and kb_draft_content:
+        article = KBArticle(
+            title=kb_draft_title,
+            content=kb_draft_content,
+            source_ticket_ref=ticket.ticket_ref,
+            status=KBArticleStatus.DRAFT,
+        )
+        db.add(article)
+        logger.info(f"Saved KB draft for ticket {ticket.ticket_ref}")
+
+    # Create notification records for consolidated (duplicate) tickets
+    if final_state.get("is_duplicate") and final_state.get("linked_ticket_ids"):
+        master_ref = final_state.get("linked_ticket_ids")[0]  # first match is the master
+        msg = (
+            f"Your ticket has been linked to master ticket {master_ref} because it describes "
+            f"a known issue. You will receive unified updates on that ticket."
+        )
+        notif = Notification(
+            master_ticket_ref=master_ref,
+            child_ticket_ref=ticket.ticket_ref,
+            customer_email=ticket.customer_email,
+            message=msg,
+            status=NotificationStatus.PENDING,
+        )
+        db.add(notif)
+        logger.info(f"Queued consolidation notification for {ticket.customer_email}")
     
     # Enums handling
     try:

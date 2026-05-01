@@ -9,9 +9,7 @@ from sqlalchemy import select
 
 from app.db.session import get_db
 from app.models.ticket import Ticket, TicketStatus
-from app.models.user import User
 from app.schemas.ticket import SDLCWebhookPayload, SDLCStatusOut
-from app.api.deps import get_current_user
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -67,7 +65,6 @@ async def receive_sdlc_webhook(
 async def get_sdlc_status(
     ticket_ref: str,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     """Get SDLC gate status for a specific ticket."""
     result = await db.execute(select(Ticket).where(Ticket.ticket_ref == ticket_ref))
@@ -87,10 +84,7 @@ async def get_sdlc_status(
 
 
 @router.get("/pending")
-async def list_pending_sdlc(
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-):
+async def list_pending_sdlc(db: AsyncSession = Depends(get_db)):
     """List all tickets awaiting SDLC dual confirmation."""
     engineering_teams = ["SRE-Team", "DevOps-Team", "Engineering-Team"]
     query = (
